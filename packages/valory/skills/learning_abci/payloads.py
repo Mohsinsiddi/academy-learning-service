@@ -55,3 +55,10 @@ class SpaceXDataPayload(BaseTxPayload):
 
     company_valuation: Optional[float]
     company_valuation_ipfs_hash: Optional[str]
+
+@dataclass(frozen=True)
+class NativeTransferPayload(BaseTxPayload):
+    """Represent a transaction payload for the NativeTransferRound."""
+
+    tx_submitter: Optional[str]
+    tx_hash: Optional[str]
