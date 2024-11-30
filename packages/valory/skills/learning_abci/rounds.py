@@ -108,6 +108,11 @@ class SynchronizedData(BaseSynchronizedData):
     def company_valuation(self) -> Optional[float]:
         """Get the company valuation."""
         return self.db.get("company_valuation", None)
+
+    @property
+    def company_valuation_ipfs_hash(self) -> Optional[str]:
+        """Get the company valuation ipfs hash."""
+        return self.db.get("company_valuation_ipfs_hash", None)
     
     @property
     def participant_to_spacex_round(self) -> DeserializedCollection:
@@ -148,6 +153,7 @@ class SpaceXDataRound(CollectSameUntilThresholdRound):
     collection_key = get_name(SynchronizedData.participant_to_spacex_round)
     selection_key = (
         get_name(SynchronizedData.company_valuation),
+        get_name(SynchronizedData.company_valuation_ipfs_hash),
     )    
     
 class DecisionMakingRound(CollectSameUntilThresholdRound):
