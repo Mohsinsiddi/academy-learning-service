@@ -48,3 +48,9 @@ class TxPreparationPayload(BaseTxPayload):
 
     tx_submitter: Optional[str] = None
     tx_hash: Optional[str] = None
+
+@dataclass(frozen=True)
+class SpaceXDataPayload(BaseTxPayload):
+    """Represent a transaction payload for the SpaceXDataRound."""
+
+    company_valuation: Optional[float]

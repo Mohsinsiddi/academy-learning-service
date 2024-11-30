@@ -37,6 +37,7 @@ from packages.valory.skills.abstract_round_abci.base import (
 from packages.valory.skills.learning_abci.payloads import (
     DataPullPayload,
     DecisionMakingPayload,
+    SpaceXDataPayload,
     TxPreparationPayload,
 )
 
@@ -102,6 +103,16 @@ class SynchronizedData(BaseSynchronizedData):
     def tx_submitter(self) -> str:
         """Get the round that submitted a tx to transaction_settlement_abci."""
         return str(self.db.get_strict("tx_submitter"))
+    
+    @property
+    def company_valuation(self) -> Optional[float]:
+        """Get the company valuation."""
+        return self.db.get("company_valuation", None)
+    
+    @property
+    def participant_to_spacex_round(self) -> DeserializedCollection:
+        """Agent to payload mapping for the SpaceXDataRound."""
+        return self._get_deserialized("participant_to_spacex_round")
 
 
 class DataPullRound(CollectSameUntilThresholdRound):
@@ -127,7 +138,18 @@ class DataPullRound(CollectSameUntilThresholdRound):
 
     # Event.ROUND_TIMEOUT  # this needs to be referenced for static checkers
 
+class SpaceXDataRound(CollectSameUntilThresholdRound):
+    """SpaceXDataRound"""
 
+    payload_class = SpaceXDataPayload
+    synchronized_data_class = SynchronizedData
+    done_event = Event.DONE
+    no_majority_event = Event.NO_MAJORITY
+    collection_key = get_name(SynchronizedData.participant_to_spacex_round)
+    selection_key = (
+        get_name(SynchronizedData.company_valuation),
+    )    
+    
 class DecisionMakingRound(CollectSameUntilThresholdRound):
     """DecisionMakingRound"""
 
@@ -188,6 +210,11 @@ class LearningAbciApp(AbciApp[Event]):
         DataPullRound: {
             Event.NO_MAJORITY: DataPullRound,
             Event.ROUND_TIMEOUT: DataPullRound,
+            Event.DONE: SpaceXDataRound,
+        },
+        SpaceXDataRound: {
+            Event.NO_MAJORITY: SpaceXDataRound,
+            Event.ROUND_TIMEOUT: SpaceXDataRound,
             Event.DONE: DecisionMakingRound,
         },
         DecisionMakingRound: {
