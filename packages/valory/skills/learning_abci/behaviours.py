@@ -280,7 +280,6 @@ class DataPullBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
 
         return balance
 
-
 class SpaceXDataBehaviour(LearningBaseBehaviour):
     """SpaceXDataBehaviour"""
 
@@ -295,13 +294,47 @@ class SpaceXDataBehaviour(LearningBaseBehaviour):
             # Get SpaceX company data using ApiSpecs
             company_data = yield from self.get_spacex_company_data()
             company_valuation = company_data.get("valuation", None) if company_data else None
-
             formatted_valuation = "${:,.2f}".format(company_valuation)
+
             self.context.logger.info(f"SpaceX company valuation: {formatted_valuation} USD")
+
+            # Store the data in IPFS
+            ipfs_hash = None
+            if company_valuation is not None:
+                stored_data = {"company_valuation": company_valuation}
+                ipfs_hash = yield from self.send_to_ipfs(
+                    filename=self.metadata_filepath,
+                    obj=stored_data,
+                    filetype=SupportedFiletype.JSON,
+                )
+                self.context.logger.info(
+                    f"SpaceX data stored in IPFS: https://gateway.autonolas.tech/ipfs/{ipfs_hash}"
+                )
+
+                # Retrieve and verify the data from IPFS
+                retrieved_data = yield from self.get_from_ipfs(
+                    ipfs_hash=ipfs_hash,
+                    filetype=SupportedFiletype.JSON
+                )
+                
+                if retrieved_data is not None:
+                    self.context.logger.info(
+                        f"Successfully retrieved data from IPFS. Stored data: {stored_data}, "
+                        f"Retrieved data: {retrieved_data}"
+                    )
+                    
+                    # Verify the data matches
+                    if stored_data == retrieved_data:
+                        self.context.logger.info("IPFS data verification successful - stored and retrieved data match")
+                    else:
+                        self.context.logger.error("IPFS data verification failed - stored and retrieved data do not match")
+                else:
+                    self.context.logger.error(f"Failed to retrieve data from IPFS hash: {ipfs_hash}")
 
             payload = SpaceXDataPayload(
                 sender=sender,
                 company_valuation=company_valuation,
+                company_valuation_ipfs_hash=ipfs_hash,
             )
 
         with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
@@ -330,7 +363,6 @@ class SpaceXDataBehaviour(LearningBaseBehaviour):
         data = json.loads(response.body)
         self.context.logger.info(f"Get SpaceX data API call successfull")
         return data
-    
 class DecisionMakingBehaviour(
     LearningBaseBehaviour
 ):  # pylint: disable=too-many-ancestors
