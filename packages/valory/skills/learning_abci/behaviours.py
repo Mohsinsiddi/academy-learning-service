@@ -50,6 +50,7 @@ from packages.valory.skills.learning_abci.models import (
 from packages.valory.skills.learning_abci.payloads import (
     DataPullPayload,
     DecisionMakingPayload,
+    SpaceXDataPayload,
     TxPreparationPayload,
 )
 from packages.valory.skills.learning_abci.rounds import (
@@ -57,6 +58,7 @@ from packages.valory.skills.learning_abci.rounds import (
     DecisionMakingRound,
     Event,
     LearningAbciApp,
+    SpaceXDataRound,
     SynchronizedData,
     TxPreparationRound,
 )
@@ -279,6 +281,56 @@ class DataPullBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
         return balance
 
 
+class SpaceXDataBehaviour(LearningBaseBehaviour):
+    """SpaceXDataBehaviour"""
+
+    matching_round: Type[AbstractRound] = SpaceXDataRound
+
+    def async_act(self) -> Generator:
+        """Do the act, supporting asynchronous execution."""
+
+        with self.context.benchmark_tool.measure(self.behaviour_id).local():
+            sender = self.context.agent_address
+
+            # Get SpaceX company data using ApiSpecs
+            company_data = yield from self.get_spacex_company_data()
+            company_valuation = company_data.get("valuation", None) if company_data else None
+
+            formatted_valuation = "${:,.2f}".format(company_valuation)
+            self.context.logger.info(f"SpaceX company valuation: {formatted_valuation} USD")
+
+            payload = SpaceXDataPayload(
+                sender=sender,
+                company_valuation=company_valuation,
+            )
+
+        with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
+            yield from self.send_a2a_transaction(payload)
+            yield from self.wait_until_round_end()
+
+        self.set_done()
+
+    def get_spacex_company_data(self) -> Generator[None, None, Optional[dict]]:
+        """Get SpaceX company data."""
+        url = self.params.spacex_api_url
+        headers = {"Accept": "application/json"}
+
+        response = yield from self.get_http_response(
+            method="GET",
+            url=url,
+            headers=headers,
+        )
+
+        if response.status_code != HTTP_OK:
+            self.context.logger.error(
+                f"Error while pulling data from SpaceX API: {response.body}"
+            )
+            return None
+
+        data = json.loads(response.body)
+        self.context.logger.info(f"Get SpaceX data API call successfull")
+        return data
+    
 class DecisionMakingBehaviour(
     LearningBaseBehaviour
 ):  # pylint: disable=too-many-ancestors
@@ -658,6 +710,7 @@ class LearningRoundBehaviour(AbstractRoundBehaviour):
     abci_app_cls = LearningAbciApp  # type: ignore
     behaviours: Set[Type[BaseBehaviour]] = [  # type: ignore
         DataPullBehaviour,
+        SpaceXDataBehaviour,
         DecisionMakingBehaviour,
         TxPreparationBehaviour,
     ]

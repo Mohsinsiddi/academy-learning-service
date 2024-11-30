@@ -59,8 +59,14 @@ class Params(BaseParams):
         # multisend address is used in other skills, so we cannot pop it using _ensure
         self.multisend_address = kwargs.get("multisend_address", "")
 
+        self.spacex_api_url = kwargs.get("spacex_api_url", "https://api.spacexdata.com/v4/company")
+
+
         super().__init__(*args, **kwargs)
 
 
 class CoingeckoSpecs(ApiSpecs):
     """A model that wraps ApiSpecs for Coingecko API."""
+
+class SpacexSpecs(ApiSpecs):
+    """A model that wraps ApiSpecs for SpaceX API."""
