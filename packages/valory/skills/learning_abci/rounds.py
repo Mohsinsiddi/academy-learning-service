@@ -37,6 +37,7 @@ from packages.valory.skills.abstract_round_abci.base import (
 from packages.valory.skills.learning_abci.payloads import (
     DataPullPayload,
     DecisionMakingPayload,
+    NativeTransferPayload,
     SpaceXDataPayload,
     TxPreparationPayload,
 )
@@ -119,6 +120,11 @@ class SynchronizedData(BaseSynchronizedData):
         """Agent to payload mapping for the SpaceXDataRound."""
         return self._get_deserialized("participant_to_spacex_round")
 
+    @property
+    def participant_to_native_transfer_round(self) -> DeserializedCollection:
+        """Get participants to native transfer round."""
+        return self._get_deserialized("participant_to_native_transfer_round")
+
 
 class DataPullRound(CollectSameUntilThresholdRound):
     """DataPullRound"""
@@ -155,7 +161,20 @@ class SpaceXDataRound(CollectSameUntilThresholdRound):
         get_name(SynchronizedData.company_valuation),
         get_name(SynchronizedData.company_valuation_ipfs_hash),
     )    
-    
+
+class NativeTransferRound(CollectSameUntilThresholdRound):
+    """NativeTransferRound"""
+
+    payload_class = NativeTransferPayload
+    synchronized_data_class = SynchronizedData
+    done_event = Event.DONE
+    no_majority_event = Event.NO_MAJORITY
+    collection_key = get_name(SynchronizedData.participant_to_native_transfer_round)
+    selection_key = (
+        get_name(SynchronizedData.tx_submitter),
+        get_name(SynchronizedData.most_voted_tx_hash),
+    )
+
 class DecisionMakingRound(CollectSameUntilThresholdRound):
     """DecisionMakingRound"""
 
@@ -233,7 +252,12 @@ class LearningAbciApp(AbciApp[Event]):
         TxPreparationRound: {
             Event.NO_MAJORITY: TxPreparationRound,
             Event.ROUND_TIMEOUT: TxPreparationRound,
+            Event.DONE: NativeTransferRound,
+        },
+        NativeTransferRound: {
             Event.DONE: FinishedTxPreparationRound,
+            Event.NO_MAJORITY: NativeTransferRound,
+            Event.ROUND_TIMEOUT: NativeTransferRound,
         },
         FinishedDecisionMakingRound: {},
         FinishedTxPreparationRound: {},
