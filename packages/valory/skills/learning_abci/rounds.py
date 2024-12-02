@@ -39,6 +39,7 @@ from packages.valory.skills.learning_abci.payloads import (
     DecisionMakingPayload,
     NativeTransferPayload,
     SpaceXDataPayload,
+    TokenBalanceCheckPayload,
     TxPreparationPayload,
 )
 
@@ -124,7 +125,16 @@ class SynchronizedData(BaseSynchronizedData):
     def participant_to_native_transfer_round(self) -> DeserializedCollection:
         """Get participants to native transfer round."""
         return self._get_deserialized("participant_to_native_transfer_round")
+    
+    @property
+    def token_balance(self) -> Optional[float]:
+        """Get the erc20 balance."""
+        return self.db.get("token_balance", None)
 
+    @property
+    def participant_to_token_balance_round(self) -> DeserializedCollection:
+        """Get the participants to token balance round."""
+        return self._get_deserialized("participant_to_token_balance_round")
 
 class DataPullRound(CollectSameUntilThresholdRound):
     """DataPullRound"""
@@ -175,6 +185,15 @@ class NativeTransferRound(CollectSameUntilThresholdRound):
         get_name(SynchronizedData.most_voted_tx_hash),
     )
 
+class TokenBalanceCheckRound(CollectSameUntilThresholdRound):
+    """TokenBalanceCheckRound"""
+    payload_class = TokenBalanceCheckPayload
+    synchronized_data_class = SynchronizedData
+    done_event = Event.DONE
+    no_majority_event = Event.NO_MAJORITY
+    collection_key = get_name(SynchronizedData.participant_to_token_balance_round)
+    selection_key = get_name(SynchronizedData.token_balance)
+    
 class DecisionMakingRound(CollectSameUntilThresholdRound):
     """DecisionMakingRound"""
 
@@ -238,8 +257,13 @@ class LearningAbciApp(AbciApp[Event]):
             Event.DONE: SpaceXDataRound,
         },
         SpaceXDataRound: {
-            Event.NO_MAJORITY: SpaceXDataRound,
-            Event.ROUND_TIMEOUT: SpaceXDataRound,
+        Event.NO_MAJORITY: SpaceXDataRound,
+        Event.ROUND_TIMEOUT: SpaceXDataRound,
+        Event.DONE: TokenBalanceCheckRound,
+        },
+        TokenBalanceCheckRound: {
+            Event.NO_MAJORITY: TokenBalanceCheckRound, 
+            Event.ROUND_TIMEOUT: TokenBalanceCheckRound,
             Event.DONE: DecisionMakingRound,
         },
         DecisionMakingRound: {

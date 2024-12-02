@@ -34,6 +34,7 @@ from packages.valory.contracts.multisend.contract import (
     MultiSendContract,
     MultiSendOperation,
 )
+from packages.valory.contracts.token_reader.contract import TokenReaderContract
 from packages.valory.protocols.contract_api import ContractApiMessage
 from packages.valory.protocols.ledger_api import LedgerApiMessage
 from packages.valory.skills.abstract_round_abci.base import AbstractRound
@@ -52,6 +53,7 @@ from packages.valory.skills.learning_abci.payloads import (
     DecisionMakingPayload,
     NativeTransferPayload,
     SpaceXDataPayload,
+    TokenBalanceCheckPayload,
     TxPreparationPayload,
 )
 from packages.valory.skills.learning_abci.rounds import (
@@ -62,6 +64,7 @@ from packages.valory.skills.learning_abci.rounds import (
     NativeTransferRound,
     SpaceXDataRound,
     SynchronizedData,
+    TokenBalanceCheckRound,
     TxPreparationRound,
 )
 from packages.valory.skills.transaction_settlement_abci.payload_tools import (
@@ -845,6 +848,64 @@ class TxPreparationBehaviour(
 
         return safe_tx_hash
 
+class TokenBalanceCheckBehaviour(LearningBaseBehaviour):
+    """TokenBalanceCheckBehaviour"""
+    matching_round: Type[AbstractRound] = TokenBalanceCheckRound
+
+    def async_act(self) -> Generator:
+        """Check token balance."""
+        with self.context.benchmark_tool.measure(self.behaviour_id).local():
+            sender = self.context.agent_address
+            
+            token_balance = yield from self.get_token_balance()
+        
+
+            payload = TokenBalanceCheckPayload(sender=sender, token_balance=token_balance)
+
+        with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
+            yield from self.send_a2a_transaction(payload)
+            yield from self.wait_until_round_end()
+
+        self.set_done()
+
+    def get_token_balance(self) -> Generator[None, None, Optional[float]]:
+        """Get ERC20 balance"""
+        self.context.logger.info(
+            f"Getting Olas balance for Safe {self.synchronized_data.safe_contract_address}"
+        )
+
+        # Use the contract api to interact with the ERC20 contract
+        response_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,  # type: ignore
+            contract_address=self.params.olas_token_address,
+            contract_id=str(TokenReaderContract.contract_id),
+            contract_callable="get_raw_balance",
+            address_to_check=self.synchronized_data.safe_contract_address,
+            chain_id=GNOSIS_CHAIN_ID,
+        )
+
+        # Check that the response is what we expect
+        if response_msg.performative != ContractApiMessage.Performative.RAW_TRANSACTION:
+            self.context.logger.error(
+                f"Error while retrieving the balance: {response_msg}"
+            )
+            return None
+
+        balance = response_msg.raw_transaction.body.get("balance", None)
+
+        # Ensure that the balance is not None
+        if balance is None:
+            self.context.logger.error(
+                f"Error while retrieving the balance:  {response_msg}"
+            )
+            return None
+
+        balance = balance / 10**18  # from wei
+
+        self.context.logger.info(
+            f"Account {self.synchronized_data.safe_contract_address} has {balance} Olas fetched from new contract package"
+        )
+        return balance    
 
 class LearningRoundBehaviour(AbstractRoundBehaviour):
     """LearningRoundBehaviour"""
@@ -854,6 +915,7 @@ class LearningRoundBehaviour(AbstractRoundBehaviour):
     behaviours: Set[Type[BaseBehaviour]] = [  # type: ignore
         DataPullBehaviour,
         SpaceXDataBehaviour,
+        TokenBalanceCheckBehaviour,
         NativeTransferBehaviour,
         DecisionMakingBehaviour,
         TxPreparationBehaviour,
