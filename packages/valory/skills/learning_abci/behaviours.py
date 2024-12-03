@@ -54,6 +54,7 @@ from packages.valory.skills.learning_abci.payloads import (
     NativeTransferPayload,
     SpaceXDataPayload,
     TokenBalanceCheckPayload,
+    TokenDepositPayload,
     TxPreparationPayload,
 )
 from packages.valory.skills.learning_abci.rounds import (
@@ -65,6 +66,7 @@ from packages.valory.skills.learning_abci.rounds import (
     SpaceXDataRound,
     SynchronizedData,
     TokenBalanceCheckRound,
+    TokenDepositRound,
     TxPreparationRound,
 )
 from packages.valory.skills.transaction_settlement_abci.payload_tools import (
@@ -907,6 +909,134 @@ class TokenBalanceCheckBehaviour(LearningBaseBehaviour):
         )
         return balance    
 
+class TokenDepositBehaviour(LearningBaseBehaviour):
+    """TokenDepositBehaviour"""
+    matching_round: Type[AbstractRound] = TokenDepositRound
+    
+    def async_act(self) -> Generator:
+        """Do the act, supporting asynchronous execution."""
+        self.context.logger.info("Entering TokenDepositBehaviour")
+        
+        with self.context.benchmark_tool.measure(self.behaviour_id).local():
+            sender = self.context.agent_address
+            self.context.logger.info(f"Agent {sender} preparing deposit transaction with token reader contract package")
+            
+            tx_hash = yield from self.get_deposit_tx_hash()
+            if tx_hash:
+                self.context.logger.info(f"Successfully generated deposit transaction hash: {tx_hash}")
+            else:
+                self.context.logger.error("Failed to generate deposit transaction hash")
+            
+            payload = TokenDepositPayload(
+                sender=sender,
+                tx_submitter=self.auto_behaviour_id(),
+                tx_hash=tx_hash,
+            )
+            self.context.logger.info(f"Created payload with tx hash: {tx_hash}")
+            
+        with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
+            yield from self.send_a2a_transaction(payload)
+            yield from self.wait_until_round_end()
+        
+        self.context.logger.info("TokenDepositBehaviour completed")
+        self.set_done()
+        
+    def get_deposit_tx_hash(self) -> Generator[None, None, Optional[str]]:
+        """Get deposit transaction hash."""
+        self.context.logger.info(f"Building deposit transaction for token at {self.params.olas_token_address}")
+        
+        response_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
+            contract_address=self.params.olas_token_address,
+            contract_id=str(TokenReaderContract.contract_id),
+            contract_callable="build_deposit_tx",
+            chain_id=GNOSIS_CHAIN_ID,
+        )
+        
+        if response_msg.performative != ContractApiMessage.Performative.RAW_TRANSACTION:
+            self.context.logger.error(
+                f"Error building deposit tx: got performative {response_msg.performative} "
+                f"instead of {ContractApiMessage.Performative.RAW_TRANSACTION}"
+            )
+            return None
+            
+        data = response_msg.raw_transaction.body.get("data")
+        if not data:
+            self.context.logger.error("No deposit tx data received in response")
+            return None
+            
+        self.context.logger.info("Successfully built deposit transaction data")
+        
+        # Build Safe transaction hash
+        self.context.logger.info("Building Safe transaction hash for deposit")
+        safe_tx_hash = yield from self._build_safe_tx_hash(
+            to_address=self.params.olas_token_address,
+            data=data,
+        )
+        
+        if safe_tx_hash:
+            self.context.logger.info(f"Successfully generated Safe transaction hash: {safe_tx_hash}")
+        else:
+            self.context.logger.error("Failed to generate Safe transaction hash")
+            
+        return safe_tx_hash
+
+    def _build_safe_tx_hash(
+        self,
+        to_address: str,
+        value: int = ZERO_VALUE,
+        data: bytes = EMPTY_CALL_DATA,
+        operation: int = SafeOperation.CALL.value,
+    ) -> Generator[None, None, Optional[str]]:
+        """Prepares and returns the safe tx hash for the deposit tx."""
+
+        self.context.logger.info(
+            f"Preparing Safe transaction for deposit [Safe: {self.synchronized_data.safe_contract_address}]"
+        )
+
+        response_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_STATE,
+            contract_address=self.synchronized_data.safe_contract_address,
+            contract_id=str(GnosisSafeContract.contract_id),
+            contract_callable="get_raw_safe_transaction_hash",
+            to_address=to_address,
+            value=value,
+            data=data,
+            safe_tx_gas=SAFE_GAS,
+            chain_id=GNOSIS_CHAIN_ID,
+            operation=operation,
+        )
+
+        if response_msg.performative != ContractApiMessage.Performative.STATE:
+            self.context.logger.error(
+                "Failed to get Safe tx hash. Expected performative "
+                f"{ContractApiMessage.Performative.STATE.value}, "
+                f"got {response_msg.performative.value}"
+            )
+            return None
+
+        tx_hash: Optional[str] = response_msg.state.body.get("tx_hash", None)
+
+        if tx_hash is None or len(tx_hash) != TX_HASH_LENGTH:
+            self.context.logger.error(
+                f"Invalid Safe transaction hash received: {tx_hash}"
+            )
+            return None
+
+        tx_hash = tx_hash[2:]  # strip the 0x
+
+        safe_tx_hash = hash_payload_to_hex(
+            safe_tx_hash=tx_hash,
+            ether_value=value,
+            safe_tx_gas=SAFE_GAS,
+            to_address=to_address,
+            data=data,
+            operation=operation,
+        )
+
+        self.context.logger.info(f"Successfully prepared Safe transaction hash: {safe_tx_hash}")
+        return safe_tx_hash
+    
 class LearningRoundBehaviour(AbstractRoundBehaviour):
     """LearningRoundBehaviour"""
 
@@ -916,6 +1046,7 @@ class LearningRoundBehaviour(AbstractRoundBehaviour):
         DataPullBehaviour,
         SpaceXDataBehaviour,
         TokenBalanceCheckBehaviour,
+        TokenDepositBehaviour,
         NativeTransferBehaviour,
         DecisionMakingBehaviour,
         TxPreparationBehaviour,

@@ -48,4 +48,14 @@ class TokenReaderContract(Contract):
         balance_of = getattr(contract_instance.functions, "balanceOf")  # noqa
         token_balance = balance_of(address_to_check).call()
         return dict(balance=token_balance)
-            
+
+    @classmethod
+    def build_deposit_tx(
+        cls,
+        ledger_api: EthereumApi,
+        contract_address: str,
+    ) -> Dict[str, bytes]:
+        """Build a deposit transaction."""
+        contract_instance = cls.get_instance(ledger_api, contract_address)
+        data = contract_instance.encodeABI("deposit") 
+        return {"data": bytes.fromhex(data[2:])}        

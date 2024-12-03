@@ -66,3 +66,9 @@ class NativeTransferPayload(BaseTxPayload):
 class TokenBalanceCheckPayload(BaseTxPayload):
     """Payload for token balance check."""
     token_balance: Optional[float]
+
+@dataclass(frozen=True)
+class TokenDepositPayload(BaseTxPayload):
+    """Represent a transaction payload for token deposit."""
+    tx_submitter: Optional[str]
+    tx_hash: Optional[str]
