@@ -40,6 +40,7 @@ from packages.valory.skills.learning_abci.payloads import (
     NativeTransferPayload,
     SpaceXDataPayload,
     TokenBalanceCheckPayload,
+    TokenDepositPayload,
     TxPreparationPayload,
 )
 
@@ -135,6 +136,11 @@ class SynchronizedData(BaseSynchronizedData):
     def participant_to_token_balance_round(self) -> DeserializedCollection:
         """Get the participants to token balance round."""
         return self._get_deserialized("participant_to_token_balance_round")
+    
+    @property
+    def participant_to_deposit_round(self) -> DeserializedCollection:
+        """Get the participants to deposit round."""
+        return self._get_deserialized("participant_to_deposit_round")
 
 class DataPullRound(CollectSameUntilThresholdRound):
     """DataPullRound"""
@@ -193,6 +199,18 @@ class TokenBalanceCheckRound(CollectSameUntilThresholdRound):
     no_majority_event = Event.NO_MAJORITY
     collection_key = get_name(SynchronizedData.participant_to_token_balance_round)
     selection_key = get_name(SynchronizedData.token_balance)
+
+class TokenDepositRound(CollectSameUntilThresholdRound):
+    """TokenDepositRound"""
+    payload_class = TokenDepositPayload
+    synchronized_data_class = SynchronizedData
+    done_event = Event.DONE
+    no_majority_event = Event.NO_MAJORITY
+    collection_key = get_name(SynchronizedData.participant_to_deposit_round)
+    selection_key = (
+        get_name(SynchronizedData.tx_submitter),
+        get_name(SynchronizedData.most_voted_tx_hash),
+    )    
     
 class DecisionMakingRound(CollectSameUntilThresholdRound):
     """DecisionMakingRound"""
@@ -262,8 +280,13 @@ class LearningAbciApp(AbciApp[Event]):
         Event.DONE: TokenBalanceCheckRound,
         },
         TokenBalanceCheckRound: {
-            Event.NO_MAJORITY: TokenBalanceCheckRound, 
-            Event.ROUND_TIMEOUT: TokenBalanceCheckRound,
+        Event.NO_MAJORITY: TokenBalanceCheckRound,
+        Event.ROUND_TIMEOUT: TokenBalanceCheckRound,
+        Event.DONE: TokenDepositRound,
+        },
+        TokenDepositRound: {
+            Event.NO_MAJORITY: TokenDepositRound,
+            Event.ROUND_TIMEOUT: TokenDepositRound,
             Event.DONE: DecisionMakingRound,
         },
         DecisionMakingRound: {

@@ -9,7 +9,7 @@ fingerprint:
   README.md: bafybeifmfma6rglvpa22odtozyosnp5mwljum64utxip2wgmezuhnjjjyi
   __init__.py: bafybeif5vpc3dfrlxlch7brbhmdwksabyzddpfqgm56vdbbkek3t3br6ke
   build/token_reader.json: bafybeiemn5b5nszuss7xj6lmvmjuendltp6wz7ubihdvd7c6wqw4bohbpa
-  contract.py: bafybeigvhzl74hizdepy3dlscc5oaazj4anxxqzzafky7cmz3dy4d5skgq
+  contract.py: bafybeig5ngdzhnb5yg5egak4qjyjjhzhzynttskheg5jyqdej6y74chx3a
 fingerprint_ignore_patterns: []
 contracts: []
 class_name: TokenReaderContract
