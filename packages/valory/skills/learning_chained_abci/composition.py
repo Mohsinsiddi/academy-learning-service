@@ -33,15 +33,17 @@ from packages.valory.skills.termination_abci.rounds import (
     Event,
     TerminationAbciApp,
 )
+import packages.valory.skills.data_collection_abci.rounds as DataCollectionAbci
 
 
 abci_app_transition_mapping: AbciAppTransitionMapping = {
-    RegistrationAbci.FinishedRegistrationRound: LearningAbci.DataPullRound,
+    RegistrationAbci.FinishedRegistrationRound: DataCollectionAbci.SpaceXDataRound,  # Start with SpaceX data
+    DataCollectionAbci.FinishedSpaceXRound: LearningAbci.DataPullRound,  # Then go to Learning
     LearningAbci.FinishedDecisionMakingRound: ResetAndPauseAbci.ResetAndPauseRound,
     LearningAbci.FinishedTxPreparationRound: TxSettlementAbci.RandomnessTransactionSubmissionRound,
     TxSettlementAbci.FinishedTransactionSubmissionRound: ResetAndPauseAbci.ResetAndPauseRound,
     TxSettlementAbci.FailedRound: TxSettlementAbci.RandomnessTransactionSubmissionRound,
-    ResetAndPauseAbci.FinishedResetAndPauseRound: LearningAbci.DataPullRound,
+    ResetAndPauseAbci.FinishedResetAndPauseRound: DataCollectionAbci.SpaceXDataRound,  # Loop back to SpaceX data
     ResetAndPauseAbci.FinishedResetAndPauseErrorRound: RegistrationAbci.RegistrationRound,
 }
 
@@ -55,6 +57,7 @@ LearningChainedSkillAbciApp = chain(
     (
         RegistrationAbci.AgentRegistrationAbciApp,
         LearningAbci.LearningAbciApp,
+        DataCollectionAbci.SpaceXDataAbciApp,  # Add DataCollection to chain
         TxSettlementAbci.TransactionSubmissionAbciApp,
         ResetAndPauseAbci.ResetPauseAbciApp,
     ),

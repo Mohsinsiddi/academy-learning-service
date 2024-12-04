@@ -38,7 +38,6 @@ from packages.valory.skills.learning_abci.payloads import (
     DataPullPayload,
     DecisionMakingPayload,
     NativeTransferPayload,
-    SpaceXDataPayload,
     TokenBalanceCheckPayload,
     TokenDepositPayload,
     TxPreparationPayload,
@@ -106,21 +105,6 @@ class SynchronizedData(BaseSynchronizedData):
     def tx_submitter(self) -> str:
         """Get the round that submitted a tx to transaction_settlement_abci."""
         return str(self.db.get_strict("tx_submitter"))
-    
-    @property
-    def company_valuation(self) -> Optional[float]:
-        """Get the company valuation."""
-        return self.db.get("company_valuation", None)
-
-    @property
-    def company_valuation_ipfs_hash(self) -> Optional[str]:
-        """Get the company valuation ipfs hash."""
-        return self.db.get("company_valuation_ipfs_hash", None)
-    
-    @property
-    def participant_to_spacex_round(self) -> DeserializedCollection:
-        """Agent to payload mapping for the SpaceXDataRound."""
-        return self._get_deserialized("participant_to_spacex_round")
 
     @property
     def participant_to_native_transfer_round(self) -> DeserializedCollection:
@@ -164,19 +148,6 @@ class DataPullRound(CollectSameUntilThresholdRound):
     )
 
     # Event.ROUND_TIMEOUT  # this needs to be referenced for static checkers
-
-class SpaceXDataRound(CollectSameUntilThresholdRound):
-    """SpaceXDataRound"""
-
-    payload_class = SpaceXDataPayload
-    synchronized_data_class = SynchronizedData
-    done_event = Event.DONE
-    no_majority_event = Event.NO_MAJORITY
-    collection_key = get_name(SynchronizedData.participant_to_spacex_round)
-    selection_key = (
-        get_name(SynchronizedData.company_valuation),
-        get_name(SynchronizedData.company_valuation_ipfs_hash),
-    )    
 
 class NativeTransferRound(CollectSameUntilThresholdRound):
     """NativeTransferRound"""
@@ -272,12 +243,7 @@ class LearningAbciApp(AbciApp[Event]):
         DataPullRound: {
             Event.NO_MAJORITY: DataPullRound,
             Event.ROUND_TIMEOUT: DataPullRound,
-            Event.DONE: SpaceXDataRound,
-        },
-        SpaceXDataRound: {
-        Event.NO_MAJORITY: SpaceXDataRound,
-        Event.ROUND_TIMEOUT: SpaceXDataRound,
-        Event.DONE: TokenBalanceCheckRound,
+            Event.DONE: TokenBalanceCheckRound,
         },
         TokenBalanceCheckRound: {
         Event.NO_MAJORITY: TokenBalanceCheckRound,
