@@ -32,12 +32,13 @@ protocols:
 skills:
 - valory/abstract_abci:0.1.0:bafybeidz54kvxhbdmpruzguuzzq7bjg4pekjb5amqobkxoy4oqknnobopu
 - valory/abstract_round_abci:0.1.0:bafybeiajjzuh6vf23crp55humonknirvv2f4s3dmdlfzch6tc5ow52pcgm
-- valory/learning_abci:0.1.0:bafybeiem3pmksa4wftmxxcxb2dr7d7mtwlczdqmlpewwfepeju37hzazv4
-- valory/learning_chained_abci:0.1.0:bafybeic6vo5r6vtmvhe65dvyt6osnh4vazglfni34ku6bnhdg74xu4faay
+- valory/learning_abci:0.1.0:bafybeibzpfmgebnqj5yntlhgi2n4y4mmcxyhv7bm5chag36maok2fop4ei
+- valory/learning_chained_abci:0.1.0:bafybeifqog2ktjgvnfsphrmxxlka3ibwpjtgf4ksqeefaeg7hfcr7jzwpe
 - valory/registration_abci:0.1.0:bafybeiffipsowrqrkhjoexem7ern5ob4fabgif7wa6gtlszcoaop2e3oey
 - valory/reset_pause_abci:0.1.0:bafybeif4lgvbzsmzljesxbphycdv52ka7qnihyjrjpfaseclxadcmm6yiq
 - valory/termination_abci:0.1.0:bafybeiekkpo5qef5zaeagm3si6v45qxcojvtjqe4a5ceccvk4q7k3xi3bi
 - valory/transaction_settlement_abci:0.1.0:bafybeielv6eivt2z6nforq43xewl2vmpfwpdu2s2vfogobziljnwsclmlm
+- valory/data_collection_abci:0.1.0:bafybeic2ph45flox2cwbidwefl6exlopc5tctjmt5th6dlizhclhtnnqom
 default_ledger: ethereum
 required_ledgers:
 - ethereum

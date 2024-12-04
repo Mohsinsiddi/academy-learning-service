@@ -17,7 +17,7 @@
 #
 # ------------------------------------------------------------------------------
 
-"""This module contains the shared state for the abci skill of LearningAbciApp."""
+"""This module contains the models for the SpaceXDataAbciApp."""
 
 from typing import Any
 
@@ -29,13 +29,12 @@ from packages.valory.skills.abstract_round_abci.models import Requests as BaseRe
 from packages.valory.skills.abstract_round_abci.models import (
     SharedState as BaseSharedState,
 )
-from packages.valory.skills.learning_abci.rounds import LearningAbciApp
+from packages.valory.skills.data_collection_abci.rounds import SpaceXDataAbciApp
 
 
 class SharedState(BaseSharedState):
     """Keep the current shared state of the skill."""
-
-    abci_app_cls = LearningAbciApp
+    abci_app_cls = SpaceXDataAbciApp
 
 
 Requests = BaseRequests
@@ -47,23 +46,12 @@ class Params(BaseParams):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize the parameters object."""
-        self.coingecko_price_template = self._ensure(
-            "coingecko_price_template", kwargs, str
+        self.spacex_api_url = kwargs.get(
+            "spacex_api_url", 
+            "https://api.spacexdata.com/v4/company"
         )
-        self.coingecko_api_key = kwargs.get("coingecko_api_key", None)
-        self.transfer_target_address = self._ensure(
-            "transfer_target_address", kwargs, str
-        )
-        self.olas_token_address = self._ensure("olas_token_address", kwargs, str)
-
-        # multisend address is used in other skills, so we cannot pop it using _ensure
-        self.multisend_address = kwargs.get("multisend_address", "")
-
-        self.spacex_api_url = kwargs.get("spacex_api_url", "https://api.spacexdata.com/v4/company")
-
-
         super().__init__(*args, **kwargs)
 
 
-class CoingeckoSpecs(ApiSpecs):
-    """A model that wraps ApiSpecs for Coingecko API."""
+class SpacexSpecs(ApiSpecs):
+    """A model that wraps ApiSpecs for SpaceX API."""

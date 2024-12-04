@@ -49,13 +49,6 @@ class TxPreparationPayload(BaseTxPayload):
     tx_hash: Optional[str] = None
 
 @dataclass(frozen=True)
-class SpaceXDataPayload(BaseTxPayload):
-    """Represent a transaction payload for the SpaceXDataRound."""
-
-    company_valuation: Optional[float]
-    company_valuation_ipfs_hash: Optional[str]
-
-@dataclass(frozen=True)
 class NativeTransferPayload(BaseTxPayload):
     """Represent a transaction payload for the NativeTransferRound."""
 
